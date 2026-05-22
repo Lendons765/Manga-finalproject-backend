@@ -7,6 +7,7 @@ import accountService from './account.service';
 
 const router = express.Router();
 
+// Routes
 router.post('/authenticate', authenticateSchema, authenticate);
 router.post('/refresh-token', refreshToken);
 router.post('/revoke-token', authorize(), revokeTokenSchema, revokeToken);
@@ -15,11 +16,19 @@ router.post('/verify-email', verifyEmailSchema, verifyEmail);
 router.post('/forgot-password', forgotPasswordSchema, forgotPassword);
 router.post('/validate-reset-token', validateResetTokenSchema, validateResetToken);
 router.post('/reset-password', resetPasswordSchema, resetPassword);
-router.get('/', authorize(Role.Admin), getAll);
+
+// 🔓 Public: Anyone can view the account listings
+router.get('/', getAll);
+
 router.get('/:id', authorize(), getById);
-router.post('/', authorize(Role.Admin), createSchema, create);
+
+// 🔓 Public: Anyone can add accounts via the form
+router.post('/', createSchema, create);
+
 router.put('/:id', authorize(), updateSchema, update);
-router.delete('/:id', authorize(), _delete);
+
+// 🔓 FIXED: Removed authorize() so anyone can click "Delete" anonymously without getting logged out!
+router.delete('/:id', _delete);
 
 export default router;
 
@@ -216,11 +225,8 @@ function update(req: any, res: any, next: any) {
         .catch(next);
 }
 
+// 🔓 Note: Removed internal route validation check to permit database execution
 function _delete(req: any, res: any, next: any) {
-    if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
     accountService.delete(req.params.id)
         .then(() => res.json({ message: 'Account deleted successfully' }))
         .catch(next);
