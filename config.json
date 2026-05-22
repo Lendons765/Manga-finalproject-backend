@@ -12,7 +12,7 @@
     "host": "smtp.ethereal.email",
     "port": 587,
     "auth": {
-      "user": "Lendon.harvey@ethereal.email",
+      "user": "lendon.harvey@ethereal.email",
       "pass": "wP4nuwQZ8GFZD12W62"
     }
   }
