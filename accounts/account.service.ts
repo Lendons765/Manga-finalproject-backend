@@ -1,4 +1,3 @@
-import config from '../config.json';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -6,6 +5,13 @@ import { Op } from 'sequelize';
 import sendEmail from '../_helpers/send-email';
 import db from '../_helpers/db';
 import Role from '../_helpers/role';
+
+type FileConfig = {
+    secret?: string;
+};
+
+const fileConfig: FileConfig =
+    process.env.NODE_ENV === 'production' ? {} : require('../config.json');
 
 export default {
     authenticate,
@@ -23,18 +29,17 @@ export default {
     delete: _delete
 };
 
-async function authenticate({ email, password, ipAddress }: any) {
+async function authenticate({ email, password, ipAddress}: any) {
     const account = await db.Account.scope('withHash').findOne({ where: { email } });
 
-    if (!account || !account.isVerified || !(await bcrypt.compare(password, account.passwordHash))) {
+    if (!account || !account.isVerified || ! (await bcrypt.compare(password, account.passwordHash))) {
         throw 'Email or password is incorrect';
     }
 
     const jwtToken = generateJwtToken(account);
     const refreshToken = generateRefreshToken(account, ipAddress);
-
+    
     await refreshToken.save();
-
     return {
         ...basicDetails(account),
         jwtToken,
@@ -56,8 +61,8 @@ async function refreshToken({ token, ipAddress }: any) {
     const jwtToken = generateJwtToken(account);
 
     return {
-        ...basicDetails(account),
-        jwtToken,
+        ...basicDetails(account), 
+        jwtToken, 
         refreshToken: newRefreshToken.token
     };
 }
@@ -69,7 +74,7 @@ async function revokeToken({ token, ipAddress }: any) {
     refreshToken.revokedByIp = ipAddress;
     await refreshToken.save();
 }
-
+    
 async function register(params: any, origin: any) {
     if (await db.Account.findOne({ where: { email: params.email } })) {
         return await sendAlreadyRegisteredEmail(params.email, origin);
@@ -84,13 +89,12 @@ async function register(params: any, origin: any) {
     account.passwordHash = await hash(params.password);
 
     await account.save();
-
+    
     await sendVerificationEmail(account, origin);
 }
-
 async function verifyEmail({ token }: any) {
     const account = await db.Account.findOne({ where: { verificationToken: token } });
-
+    
     if (!account) throw 'Verification failed';
 
     account.verified = Date.now();
@@ -100,9 +104,9 @@ async function verifyEmail({ token }: any) {
 
 async function forgotPassword({ email }: any, origin: any) {
     const account = await db.Account.findOne({ where: { email } });
-
+    
     if (!account) return;
-
+    
     account.resetToken = randomTokenString();
     account.resetTokenExpires = new Date(Date.now() + 24*60*60*1000);
     await account.save();
@@ -117,15 +121,13 @@ async function validateResetToken({ token }: any) {
             resetTokenExpires: { [Op.gt]: Date.now() }
         }
     });
-
-    if (!account) throw 'Invalid token';
-
-    return account;
+        if (!account) throw 'Invalid token';
+        return account;
 }
 
 async function resetPassword({ token, password }: any) {
-    const account = await validateResetToken({ token });
-
+    const account = await validateResetToken({token});
+    
     account.passwordHash = await hash(password);
     account.passwordReset = Date.now();
     account.resetToken = null;
@@ -142,7 +144,7 @@ async function getById(id: any) {
     return basicDetails(account);
 }
 
-async function create(params: any) {
+async function create (params: any) {
     if (await db.Account.findOne({ where: { email: params.email } })) {
         throw 'Email "' + params.email + '" is already registered';
     }
@@ -151,7 +153,7 @@ async function create(params: any) {
     account.verified = Date.now();
 
     account.passwordHash = await hash(params.password);
-
+    
     await account.save();
 
     return basicDetails(account);
@@ -196,8 +198,20 @@ async function hash(password: any) {
     return await bcrypt.hash(password, 10);
 }
 
+function getJwtSecret() {
+    if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+        throw 'JWT_SECRET environment variable is required in production';
+    }
+
+    const secret = process.env.JWT_SECRET || fileConfig.secret;
+
+    if (!secret) throw 'JWT secret is missing';
+
+    return secret;
+}
+
 function generateJwtToken(account: any) {
-    return jwt.sign({ sub: account.id, id: account.id }, config.secret, { expiresIn: '15m' });
+    return jwt.sign({ sub: account.id, id: account.id }, getJwtSecret(), { expiresIn: '15m' });
 }
 
 function generateRefreshToken(account: any, ipAddress: any) {
@@ -222,7 +236,8 @@ async function sendVerificationEmail(account: any, origin: any) {
     let message;
     if (origin) {
         const verifyUrl = `${origin}/account/verify-email?token=${account.verificationToken}`;
-        message = `<p>Please click the below link to verify your email address:</p>
+        console.log('VERIFY EMAIL URL:', verifyUrl);
+        message = `<p>Please click the below link to verify your email address.</p>
                    <p><a href="${verifyUrl}">${verifyUrl}</a></p>`;
     } else {
         message = `<p>Please use the below token to verify your email address with the <code>/account/verify-email</code> api route:</p>

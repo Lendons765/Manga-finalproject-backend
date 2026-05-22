@@ -1,10 +1,11 @@
 import express from 'express';
-const router = express.Router();
 import Joi from 'joi';
 import validateRequest from '../_middleware/validate-request';
 import authorize from '../_middleware/authorize';
 import Role from '../_helpers/role';
 import accountService from './account.service';
+
+const router = express.Router();
 
 router.post('/authenticate', authenticateSchema, authenticate);
 router.post('/refresh-token', refreshToken);
@@ -33,7 +34,7 @@ function authenticateSchema(req: any, res: any, next: any) {
 function authenticate(req: any, res: any, next: any) {
     const { email, password } = req.body;
     const ipAddress = req.ip;
-    accountService.authenticate({ email, password, ipAddress })
+    accountService.authenticate({ email, password , ipAddress})
         .then(({ refreshToken, ...account }: any) => {
             setTokenCookie(res, refreshToken);
             res.json(account);
@@ -44,7 +45,12 @@ function authenticate(req: any, res: any, next: any) {
 function refreshToken(req: any, res: any, next: any) {
     const token = req.cookies.refreshToken;
     const ipAddress = req.ip;
-    accountService.refreshToken({ token, ipAddress })
+
+    if (!token) {
+        return res.status(401).json({ message: 'No refresh token provided' });
+    }
+
+    accountService.refreshToken({ token , ipAddress})
         .then(({ refreshToken, ...account }: any) => {
             setTokenCookie(res, refreshToken);
             res.json(account);
@@ -65,11 +71,11 @@ function revokeToken(req: any, res: any, next: any) {
 
     if (!token) return res.status(400).json({ message: 'Token is required' });
 
-    if (!req.auth.ownsToken(token) && req.auth.role !== Role.Admin) {
+    if (!req.user.ownsToken(token) && req.user.role !== Role.Admin) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    accountService.revokeToken({ token, ipAddress })
+    accountService.revokeToken({ token , ipAddress })
         .then(() => res.json({ message: 'Token revoked' }))
         .catch(next);
 }
@@ -101,7 +107,7 @@ function verifyEmailSchema(req: any, res: any, next: any) {
 }
 
 function verifyEmail(req: any, res: any, next: any) {
-    accountService.verifyEmail(req.body)
+    accountService.verifyEmail(req.body)    
         .then(() => res.json({ message: 'Verification successful, you can now login' }))
         .catch(next);
 }
@@ -154,9 +160,9 @@ function getAll(req: any, res: any, next: any) {
 }
 
 function getById(req: any, res: any, next: any) {
-    if (Number(req.params.id) !== req.auth.id && req.auth.role !== Role.Admin) {
-    return res.status(401).json({ message: 'Unauthorized' });
-}
+    if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
 
     accountService.getById(req.params.id)
         .then((account: any) => account ? res.json(account) : res.sendStatus(404))
@@ -192,16 +198,16 @@ function updateSchema(req: any, res: any, next: any) {
         confirmPassword: Joi.string().valid(Joi.ref('password')).empty('')
     };
 
-    if (req.auth.role === Role.Admin) {
+    if (req.user.role === Role.Admin) {
         schemaRules.role = Joi.string().valid(Role.Admin, Role.User).empty('');
-    }   
+    }
 
     const schema = Joi.object(schemaRules).with('password', 'confirmPassword');
     validateRequest(req, next, schema);
 }
 
 function update(req: any, res: any, next: any) {
-    if (Number(req.params.id) !== req.auth.id && req.auth.role !== Role.Admin) {
+    if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -211,7 +217,7 @@ function update(req: any, res: any, next: any) {
 }
 
 function _delete(req: any, res: any, next: any) {
-    if (Number(req.params.id) !== req.auth.id && req.auth.role !== Role.Admin) {
+    if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
@@ -220,10 +226,13 @@ function _delete(req: any, res: any, next: any) {
         .catch(next);
 }
 
-function setTokenCookie(res: any, token: any) {
-    const cookieOptions = {
+function setTokenCookie(res: any, token: string) {
+    const cookieOptions: any = {
         httpOnly: true,
-        expires: new Date(Date.now() + 7*24*60*60*1000)
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        sameSite: process.env.COOKIE_SAMESITE || 'lax',
+        secure: process.env.COOKIE_SECURE === 'true'
     };
+
     res.cookie('refreshToken', token, cookieOptions);
 }
