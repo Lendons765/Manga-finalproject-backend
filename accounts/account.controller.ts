@@ -20,12 +20,12 @@ router.post('/reset-password', resetPasswordSchema, resetPassword);
 // 🔓 Public: Anyone can view the account listings
 router.get('/', getAll);
 
-router.get('/:id', authorize(), getById);
+router.get('/:id', getById);
 
 // 🔓 Public: Anyone can add accounts via the form
 router.post('/', createSchema, create);
 
-router.put('/:id', authorize(), updateSchema, update);
+router.put('/:id', updateSchema, update);
 
 // 🔓 FIXED: Removed authorize() so anyone can click "Delete" anonymously without getting logged out!
 router.delete('/:id', _delete);
