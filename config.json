@@ -3,7 +3,7 @@
     "host": "localhost",
     "port": 3306,
     "user": "root",
-    "password": "admin",
+    "password": "",
     "database": "node_mysql_api"
   },
   "secret": "SUPER_SECRET_KEY_REPLACE_ME_IN_PRODUCTION",
@@ -12,7 +12,7 @@
     "host": "smtp.ethereal.email",
     "port": 587,
     "auth": {
-      "user": "reinhold.harvey@ethereal.email",
+      "user": "Lendon.harvey@ethereal.email",
       "pass": "wP4nuwQZ8GFZD12W62"
     }
   }
