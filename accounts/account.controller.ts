@@ -17,18 +17,16 @@ router.post('/forgot-password', forgotPasswordSchema, forgotPassword);
 router.post('/validate-reset-token', validateResetTokenSchema, validateResetToken);
 router.post('/reset-password', resetPasswordSchema, resetPassword);
 
-// 🔓 Public: Anyone can view the account listings
+// 🔓 Public: Allowed anyone to directly view the user rows
 router.get('/', getAll);
 
+// 🔒 Protected: Requires an authenticated user session
 router.get('/:id', authorize(), getById);
-
-// 🔓 Public: Anyone can add accounts via the form
-router.post('/', createSchema, create);
-
+router.post('/', authorize(Role.Admin), createSchema, create);
 router.put('/:id', authorize(), updateSchema, update);
 
-// 🔓 FIXED: Removed authorize() so anyone can click "Delete" anonymously without getting logged out!
-router.delete('/:id', _delete);
+// 🔒 FIXED: Re-added authorize() middleware so req.user is populated properly
+router.delete('/:id', authorize(), _delete);
 
 export default router;
 
@@ -225,8 +223,12 @@ function update(req: any, res: any, next: any) {
         .catch(next);
 }
 
-// 🔓 Note: Removed internal route validation check to permit database execution
+// 🔒 FIXED: Validates user context properly to prevent server hanging
 function _delete(req: any, res: any, next: any) {
+    if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     accountService.delete(req.params.id)
         .then(() => res.json({ message: 'Account deleted successfully' }))
         .catch(next);
