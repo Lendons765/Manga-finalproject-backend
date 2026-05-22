@@ -7,7 +7,6 @@ import accountService from './account.service';
 
 const router = express.Router();
 
-// Routes
 router.post('/authenticate', authenticateSchema, authenticate);
 router.post('/refresh-token', refreshToken);
 router.post('/revoke-token', authorize(), revokeTokenSchema, revokeToken);
@@ -16,15 +15,9 @@ router.post('/verify-email', verifyEmailSchema, verifyEmail);
 router.post('/forgot-password', forgotPasswordSchema, forgotPassword);
 router.post('/validate-reset-token', validateResetTokenSchema, validateResetToken);
 router.post('/reset-password', resetPasswordSchema, resetPassword);
-
-// 🔓 Public: Allowed anyone to directly load the user rows
-router.get('/', getAll);
-
+router.get('/', authorize(Role.Admin), getAll);
 router.get('/:id', authorize(), getById);
-
-// 🔓 FIXED: Removed authorize(Role.Admin) so anyone can submit the "Create Account" form from the frontend
-router.post('/', createSchema, create);
-
+router.post('/', authorize(Role.Admin), createSchema, create);
 router.put('/:id', authorize(), updateSchema, update);
 router.delete('/:id', authorize(), _delete);
 
