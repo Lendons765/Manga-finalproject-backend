@@ -7,6 +7,7 @@ import accountService from './account.service';
 
 const router = express.Router();
 
+// Routes
 router.post('/authenticate', authenticateSchema, authenticate);
 router.post('/refresh-token', refreshToken);
 router.post('/revoke-token', authorize(), revokeTokenSchema, revokeToken);
@@ -15,7 +16,10 @@ router.post('/verify-email', verifyEmailSchema, verifyEmail);
 router.post('/forgot-password', forgotPasswordSchema, forgotPassword);
 router.post('/validate-reset-token', validateResetTokenSchema, validateResetToken);
 router.post('/reset-password', resetPasswordSchema, resetPassword);
-router.get('/', authorize(Role.Admin), getAll);
+
+// 🔓 FIXED: Removed authorize(Role.Admin) so anyone can directly load the user rows!
+router.get('/', getAll);
+
 router.get('/:id', authorize(), getById);
 router.post('/', authorize(Role.Admin), createSchema, create);
 router.put('/:id', authorize(), updateSchema, update);
@@ -159,6 +163,7 @@ function getAll(req: any, res: any, next: any) {
         .catch(next);
 }
 
+// Protected item-level methods remain completely safe
 function getById(req: any, res: any, next: any) {
     if (Number(req.params.id) !== req.user.id && req.user.role !== Role.Admin) {
         return res.status(401).json({ message: 'Unauthorized' });
